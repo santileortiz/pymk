@@ -6,7 +6,7 @@ def default():
     call_user_function(target)
 
 def example_procedure ():
-    ex ('echo calling example_procedure().', echo=False)
+    ex ('echo calling example_procedure\(\).', echo=False)
 
 if __name__ == "__main__":
     # Everything above this line will be executed for each TAB press.
