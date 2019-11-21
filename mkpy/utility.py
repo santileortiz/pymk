@@ -437,6 +437,25 @@ def path_exists (path_s):
     resolved_path = path_s.format(**get_user_str_vars())
     return pathlib.Path(resolved_path).exists()
 
+def path_dirname (path_s):
+    return os.path.dirname(path_s)
+
+def path_basename (path_s):
+    return os.path.basename(path_s)
+
+def path_cat (path, *paths):
+    # I don't like how os.path.join() resets to root if it finds os.sep as the
+    # start of an element in *paths. This ignores those leading separators.
+
+    stripped_paths = []
+    for p in paths:
+        if p.startswith(os.sep):
+            stripped_paths.append(p[1:])
+        else:
+            stripped_paths.append(p)
+
+    return os.path.join(path, *stripped_paths)
+
 # This could also be accomplished by:
 #   ex ('mkdir -p {path_s}')
 # Maybe remove this function and use that instead, although it won't work on Windows
