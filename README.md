@@ -25,7 +25,7 @@ the one that will be called if you run `./pymk.py` without arguments.
 
 The first time you call this pymk.py script it will prompt you with a command
 that will install support for tab complete in this procedures. You can disable
-tab completions by removing the call to `handle\_tab\_complete()`.
+tab completions by removing the call to `handle_tab_complete()`.
 
 ## FAQ
 
