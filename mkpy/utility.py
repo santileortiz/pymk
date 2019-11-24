@@ -354,8 +354,8 @@ def pers_set_cache_dict (cache_dict):
 def pers (name, default=None, value=None):
     """
     Makes persistent some value across runs of the script storing it in a
-    dctionary on "mkpy/cache".  Stores _name_:_value_ pair in cache unless
-    value==None.  Returns the value of _name_ in the cache.
+    dctionary on "mkpy/cache". Stores _name_:_value_ pair in cache unless
+    value==None. Returns the value of _name_ in the cache.
 
     If default is used, when _value_==None and _name_ is not in the cache the
     pair _name_:_default is stored.
