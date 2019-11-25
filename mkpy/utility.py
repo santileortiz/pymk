@@ -338,7 +338,7 @@ def get_target ():
         else:
             return sys.argv[1]
 
-def pers_get_cache_dict ():
+def get_cache_dict ():
     cache_dict = {}
     if os.path.exists('mkpy/cache'):
         cache = open ('mkpy/cache', 'r')
@@ -346,23 +346,24 @@ def pers_get_cache_dict ():
         cache.close ()
     return cache_dict
 
-def pers_set_cache_dict (cache_dict):
+def set_cache_dict (cache_dict):
     cache = open ('mkpy/cache', 'w')
     cache.write (str(cache_dict)+'\n')
     cache.close ()
 
-def pers (name, default=None, value=None):
+def store (name, value, default=None):
     """
-    Makes persistent some value across runs of the script storing it in a
-    dctionary on "mkpy/cache". Stores _name_:_value_ pair in cache unless
-    value==None. Returns the value of _name_ in the cache.
+    Stores _value_ as an element of a dictionary in mkpy/cache with _name_ as
+    key. Returns the value of _name_ in the cache. Used to reuse values across
+    runs of the script.
 
-    If default is used, when _value_==None and _name_ is not in the cache the
-    pair _name_:_default is stored.
+    If _default_ is set, the _default_ value will be the one stored if
+    _value_==None and _name_ is not in the cache. This is useful to make store
+    always return a value, even if the cache hasn't been created yet.
     """
     global g_dry_run
 
-    cache_dict = pers_get_cache_dict ()
+    cache_dict = get_cache_dict ()
 
     if value == None:
         if name in cache_dict.keys ():
@@ -376,20 +377,67 @@ def pers (name, default=None, value=None):
     else:
         cache_dict[name] = value
 
-    # In dry ryn mode just don't update the cache file
+    # In dry run mode just don't update the cache file
     if not g_dry_run:
-        pers_set_cache_dict (cache_dict)
+        set_cache_dict (cache_dict)
+    return cache_dict.get (name)
+
+def store_get (name, default=None):
+    pass
+
+def pers (name, default=None, value=None):
+    """
+    Makes persistent some value across runs of the script, storing it as an
+    element of a dictionary in mkpy/cache. Stores _name_:_value_ pair in cache
+    unless value==None. Returns the value of _name_ in the cache.
+
+    If default is used, when _value_==None and _name_ is not in the cache the
+    pair _name_:_default is stored.
+    """
+    global g_dry_run
+
+    cache_dict = get_cache_dict ()
+
+    if value == None:
+        if name in cache_dict.keys ():
+            return cache_dict[name]
+        else:
+            if default != None:
+                cache_dict[name] = default
+            else:
+                print ('Key '+name+' is not in cache.')
+                return
+    else:
+        cache_dict[name] = value
+
+    # In dry run mode just don't update the cache file
+    if not g_dry_run:
+        set_cache_dict (cache_dict)
     return cache_dict.get (name)
 
 def pers_func_f (name, func, args, kwargs={}):
-    # TODO: Is there a valid usecase where arg==None? for now I can't think of
-    # any one.
-    if args == None:
-        print ("I didn't expect to receive arg==None")
+    """
+    This function calls _func_(*args, **kwargs), stores whatever it returns in
+    mkpy/cache with _name_ as key. If this function is called agaín, and _args_
+    and _kwargs_ don't change, the previous result is returned without calling
+    _func_ agaín.
+
+    We assume the return value of _func_ only depends on its arguments. If it
+    depends on external state, there is no way we can detect _func_ needs to be
+    called again.
+    """
+    # I don't think there is a valud usecase where we would receive no
+    # arguments. If there are no arguments then the return value of the
+    # function is always the same and there is no need to use this to cache the
+    # result. It can be cached once with store().
+    if (args == None or len(args) == 0) and len(kwargs) == 0:
+        print ("pers_func_f expects at least one argument for func.")
         return
 
+    # TODO: What should we do in dry run mode?.
+
     call_func = False
-    cache_dict = pers_get_cache_dict ()
+    cache_dict = get_cache_dict ()
 
     # If args changed from last call update them in cache and trigger
     # execution of func
@@ -415,9 +463,9 @@ def pers_func_f (name, func, args, kwargs={}):
     # If some argument changed or func has never been called, call func and
     # store result in cache. Else return cached value.
     if last_args == None or call_func:
-        res = func(*args, **kwargs)
+        res = str(func(*args, **kwargs))
         cache_dict[name] = res
-        pers_set_cache_dict (cache_dict)
+        set_cache_dict (cache_dict)
         return res
     else:
         return cache_dict[name]
@@ -425,8 +473,16 @@ def pers_func_f (name, func, args, kwargs={}):
 def pers_func (name, func, arg):
     """
     Simpler version of pers_func_f for the case when _func_ has a single
-    argument
+    argument.
     """
+    # TODO: I haven't used pers_func_f enough to know if this is more common in
+    # general. If it isn't then we should remove this and call pers_func_f
+    # always (rename it to pers_func).
+    #
+    #     pers_func(name, func, [arg]) vs pers_func(name, func, arg)
+    #
+    # What I'm worried is that people would find it counter intuitive to have
+    # to wrap arg into a list.
     return pers_func_f (name, func, [arg])
 
 def path_exists (path_s):
@@ -828,5 +884,5 @@ def pymk_default ():
 
     call_user_function (t)
     if t != 'default' and t != 'install':
-        pers ('last_target', value=t)
+        store ('last_target', value=t)
 
