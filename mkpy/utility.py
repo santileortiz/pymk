@@ -357,8 +357,8 @@ def store (name, value, default=None):
     key. Returns the value of _name_ in the cache. Used to reuse values across
     runs of the script.
 
-    If _default_ is set, the _default_ value will be the one stored if
-    _value_==None and _name_ is not in the cache. This is useful to make store
+    If _default_ is set, _value_==None and _name_ is not in the cache, then
+    _default_ will be the value stored. This is useful to make this function
     always return a value, even if the cache hasn't been created yet.
     """
     global g_dry_run
@@ -372,7 +372,7 @@ def store (name, value, default=None):
             if default != None:
                 cache_dict[name] = default
             else:
-                print ('Key '+name+' is not in cache.')
+                print ('Key \''+name+'\' is not in pymk/cache.')
                 return
     else:
         cache_dict[name] = value
@@ -383,37 +383,71 @@ def store (name, value, default=None):
     return cache_dict.get (name)
 
 def store_get (name, default=None):
-    pass
-
-def pers (name, default=None, value=None):
     """
-    Makes persistent some value across runs of the script, storing it as an
-    element of a dictionary in mkpy/cache. Stores _name_:_value_ pair in cache
-    unless value==None. Returns the value of _name_ in the cache.
+    Returns the stored value of _name_ in the dictionary at mkpy/cache.
 
-    If default is used, when _value_==None and _name_ is not in the cache the
-    pair _name_:_default is stored.
+    If _default_!=None and _name_ is not in the cache, the _name_ dictionary
+    item will be initialized to _default_.
     """
-    global g_dry_run
 
-    cache_dict = get_cache_dict ()
+    # Even though we could avoid creating this function and require the user to
+    # call store() with value==None, I found this is counter intuitive and hard
+    # to remember, because it mixes a function that stores with one that gets
+    # so the argument order is not straightforward, when using it to store the
+    # 'natural' order is (name, value, default), but when using it to get a
+    # value the common order would be (name, default, value) as value isn't
+    # really useful here and needs to be set to None.
+    return store (name, None, default)
 
+def store_init (name, value):
+    """
+    Initializes the _name_ entry in the dictionary at mkpy/cache to _value_.
+    This will only happen if _name_ is not yet in the cache.
+    """
+
+    # As with store_get() we could avoid this function, but it also
+    # semantically overloads the store() function and makes it harder to know
+    # the intent when reading a script that uses it. This makes the intent
+    # clear as it also won't return anything.
     if value == None:
-        if name in cache_dict.keys ():
-            return cache_dict[name]
-        else:
-            if default != None:
-                cache_dict[name] = default
-            else:
-                print ('Key '+name+' is not in cache.')
-                return
+        print ('Initializing store entry \''+name+'\' to None is not allowed.')
     else:
-        cache_dict[name] = value
+        store (name, None, value)
 
-    # In dry run mode just don't update the cache file
-    if not g_dry_run:
-        set_cache_dict (cache_dict)
-    return cache_dict.get (name)
+# DEPRECATED
+# I didn't like how I overloaded this function with at least 3 different
+# semantics. I splitted it into the store* functions that make these semantics
+# explicit.
+#
+#def pers (name, default=None, value=None):
+#    """
+#    Makes persistent some value across runs of the script, storing it as an
+#    element of a dictionary in mkpy/cache. Stores _name_:_value_ pair in cache
+#    unless value==None. Returns the value of _name_ in the cache.
+#
+#    If default is used, when _value_==None and _name_ is not in the cache the
+#    pair _name_:_default is stored.
+#    """
+#    global g_dry_run
+#
+#    cache_dict = get_cache_dict ()
+#
+#    if value == None:
+#        if name in cache_dict.keys ():
+#            return cache_dict[name]
+#        else:
+#            if default != None:
+#                cache_dict[name] = default
+#            else:
+#                print ('Key '+name+' is not in cache.')
+#                return
+#    else:
+#        cache_dict[name] = value
+#
+#    # In dry run mode just don't update the cache file
+#    if not g_dry_run:
+#        set_cache_dict (cache_dict)
+#    return cache_dict.get (name)
 
 def pers_func_f (name, func, args, kwargs={}):
     """
