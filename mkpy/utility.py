@@ -519,13 +519,16 @@ def pers_func (name, func, arg):
     # to wrap arg into a list.
     return pers_func_f (name, func, [arg])
 
+def path_resolve (path_s):
+    # TODO: Expand ~ to user's home.
+    return path_s.format(**get_user_str_vars())
+
 def path_exists (path_s):
     """
     Convenience function that checks the existance of a file or directory. It
     supports context variable substitutions.
     """
-    resolved_path = path_s.format(**get_user_str_vars())
-    return pathlib.Path(resolved_path).exists()
+    return pathlib.Path(path_resolve(path_s)).exists()
 
 def path_dirname (path_s):
     return os.path.dirname(path_s)
@@ -554,7 +557,8 @@ def ensure_dir (path_s):
     if g_dry_run:
         return
 
-    if not path_exists(path_s):
+    resolved_path = path_resolve(path_s)
+    if not path_exists(resolved_path):
         os.makedirs (resolved_path)
 
 def needs_target (recipe):
@@ -690,35 +694,39 @@ def deb_find_deps (pkg_name):
     return deps_str.split ('\n')
 
 def get_pkg_manager_type ():
-    os_release = open ('/etc/os-release', "r")
-    os_id = ''
-    os_id_like = ''
-    for l in os_release:
-        if l.startswith ('ID='):
-            os_id = l.replace ('ID=', '').strip()
-        elif l.startswith ('ID_LIKE='):
-            os_id_like = l.replace ('ID_LIKE=', '').strip()
-    os_release.close()
+    if path_exists ('/etc/os-release'):
+        os_release = open ('/etc/os-release', "r")
+        os_id = ''
+        os_id_like = ''
+        for l in os_release:
+            if l.startswith ('ID='):
+                os_id = l.replace ('ID=', '').strip()
+            elif l.startswith ('ID_LIKE='):
+                os_id_like = l.replace ('ID_LIKE=', '').strip()
+        os_release.close()
 
-    os_id = os_id.replace ("'",'').replace ('"', '')
-    os_id_like = os_id_like.replace ("'",'').replace ('"', '')
+        os_id = os_id.replace ("'",'').replace ('"', '')
+        os_id_like = os_id_like.replace ("'",'').replace ('"', '')
 
-    def match_os_id (wanted_ids, os_id, os_id_like):
-        for i in wanted_ids:
-            if i == os_id:
-                return True
-            elif i == os_id_like:
-                return True
-            else:
-                return False
+        def match_os_id (wanted_ids, os_id, os_id_like):
+            for i in wanted_ids:
+                if i == os_id:
+                    return True
+                elif i == os_id_like:
+                    return True
+                else:
+                    return False
 
-    deb_oses = ['elementary', 'ubuntu', 'debian']
-    rpm_oses = ['fedora']
+        deb_oses = ['elementary', 'ubuntu', 'debian']
+        rpm_oses = ['fedora']
 
-    if match_os_id (deb_oses, os_id, os_id_like):
-        return 'deb'
-    elif match_os_id (rpm_oses, os_id, os_id_like):
-        return 'rpm'
+        if match_os_id (deb_oses, os_id, os_id_like):
+            return 'deb'
+        elif match_os_id (rpm_oses, os_id, os_id_like):
+            return 'rpm'
+        else:
+            return ''
+
     else:
         return ''
 
