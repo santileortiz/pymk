@@ -132,17 +132,21 @@ def handle_tab_complete ():
                 print (' '.join(def_opts))
         exit ()
 
-def get_cli_arg_opt (opts, values=None, unique_option=False):
+def get_cli_arg_opt (opts, values=None, unique_option=False, default=None):
     """
     Parses sys.argv looking for option _opt_ and expects an argument after it.
 
-    If _opt_ is found and it has an argument after it, it returns the value of
-    the argument as a string.
-    If _values_ is set, we check that the argument is present in the list.
-    If _opt_ is not found, there is no argument or _values_ is provided and the
-    argument doesn't match, it returns None.
+    If _opt_ is found in argv and it has an argument after it, it returns the
+    value of the argument as a string.
+    If a list of strings is passed in _values_ , we check that the argument is
+    present in the list, if it isn't None is returned as error.
+    If _opt_ is not found in argv the return value depends on the value of
+    _default_, if it's different to None _default_ is casted to string and
+    returned, otherwise None is returned.
 
     When unique_option is True then _opt_ must be the only option used.
+
+    NOTE: This always return a string. Casts must be done by the user.
     """
     global cli_completions
 
@@ -166,10 +170,14 @@ def get_cli_arg_opt (opts, values=None, unique_option=False):
                 break
         i = i+1
 
+    # TODO: I'm thinking unique_option is not that useful. Probably remove it.
     if unique_option and res != None:
         if len(sys.argv) != 3:
             print ('Option '+opt+' receives no other option.')
             return
+
+    if res == None and default != None:
+        res = str (default)
 
     if values != None and res != None:
         if res not in values:

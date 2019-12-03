@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+from mkpy.utility import *
+
 # The following functions count_next() and count_start(), use the persistance
 # functions to create an idiom where we have an increasing counter, that can be
 # reset to 0 or set to a specific value. This is useful for example for
@@ -10,11 +13,11 @@ def count_next ():
     store ('i', i+1)
 
 def count_start ():
-    cli_counter = get_cli_arg_opt('--counter')
-    val = 0
-    if cli_counter != None:
-        val = int(cli_counter)
-    i = store ('i', val)
+    # Note the difference between using the default option in store() or
+    # store_get() and in get_cli_arg_opt(). In the store functions the default
+    # is only used if the variable is undefined in the cache, get_cli_arg_opt()
+    # will return the default whenever the option is not present in argv.
+    i = store ('i', int(get_cli_arg_opt('--counter', default = 0)))
     ex ('echo Starting counter at: ' + str(i), echo=False)
 
 if __name__ == "__main__":
