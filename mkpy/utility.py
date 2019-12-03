@@ -528,8 +528,7 @@ def pers_func (name, func, arg):
     return pers_func_f (name, func, [arg])
 
 def path_resolve (path_s):
-    # TODO: Expand ~ to user's home.
-    return path_s.format(**get_user_str_vars())
+    return os.path.expanduser(path_s.format(**get_user_str_vars()))
 
 def path_exists (path_s):
     """
