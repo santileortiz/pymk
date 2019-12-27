@@ -355,6 +355,9 @@ def get_cache_dict ():
     return cache_dict
 
 def set_cache_dict (cache_dict):
+    if not path_exists('mkpy/cache'):
+        return
+
     cache = open ('mkpy/cache', 'w')
     cache.write (str(cache_dict)+'\n')
     cache.close ()
