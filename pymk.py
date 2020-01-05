@@ -10,7 +10,7 @@ mode = store('mode', get_cli_arg_opt('-M,--mode', modes.keys()), 'debug')
 C_FLAGS = modes[mode]
 
 def default ():
-    target = store_get ('last_target', default='example_procedure')
+    target = store_get ('last_snip', default='example_procedure')
     call_user_function(target)
 
 def example_procedure ():
