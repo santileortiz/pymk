@@ -4,7 +4,7 @@ from mkpy.utility import *
 # This example shows how to simplify calling gcc with several CLI options that
 # make it more convenient for developers.
 
-# This is how we can ser different compiler flags that will be selected by
+# This is how we can set different compiler flags that will be selected by
 # using a command line option (in this case --mode or -M). The last mode used
 # will be persisted acrosss runs of the script so --mode can be ommited in
 # later calls. Tab complete will work to complete --mode after -- is typed, and
@@ -19,7 +19,7 @@ C_FLAGS = modes[mode]
 
 # This function will be called if no argument is passed to pymk.py
 def default ():
-    target = store ('last_target', default='example_procedure')
+    target = store_get ('last_snip', default='simple_build')
     call_user_function(target)
 
 # This example shows how to run a simple bash command.
