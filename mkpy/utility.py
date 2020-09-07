@@ -1,4 +1,4 @@
-import sys, subprocess, os, ast, shutil, platform
+import sys, subprocess, os, ast, shutil, platform, json
 
 import importlib.util, inspect, pathlib, filecmp
 
@@ -269,11 +269,11 @@ def get_cli_rest ():
         i = i+1
     return None
 
-def err (string):
-    print ('\033[1m\033[91m{}\033[0m'.format(string))
+def err (string, **kwargs):
+    print ('\033[1m\033[91m{}\033[0m'.format(string), **kwargs)
 
-def ok (string):
-    print ('\033[1m\033[92m{}\033[0m'.format(string))
+def ok (string, **kwargs):
+    print ('\033[1m\033[92m{}\033[0m'.format(string), **kwargs)
 
 def get_user_str_vars ():
     """
@@ -385,6 +385,22 @@ def warn (s):
     color = '\033[1;33m\033[K'
     default_color = '\033[m\033[K'
     print (color+s+default_color)
+
+def py_literal_load(fname):
+    with open (fname, 'r') as f:
+        return ast.literal_eval(f.read())
+
+def py_literal_dump(obj, fname):
+    with open (fname, 'w') as f:
+        f.write(str(obj))
+
+def json_load(fname):
+    with open (fname, 'r') as f:
+        return json.load(f)
+
+def json_dump(obj, fname):
+    with open (fname, 'w') as f:
+        return json.dump(obj, f)
 
 def get_snip ():
     if len(sys.argv) == 1:
