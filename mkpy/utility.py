@@ -132,7 +132,7 @@ def handle_tab_complete ():
     if not check_completions ():
         if get_cli_bool_opt('--install_completions'):
             print ('Installing tab completions...')
-            ex ('cp mkpy/pymk.py {}'.format(completion_script, get_completions_path()))
+            ex ('cp mkpy/pymk.py {}'.format(get_completions_path()))
             exit ()
 
         else:
