@@ -134,7 +134,7 @@ def handle_tab_complete ():
     if not check_completions ():
         if get_cli_bool_opt('--install_completions'):
             print ('Installing tab completions...')
-            ex ('cp mkpy/pymk.py {}'.format(completion_script, get_completions_path()))
+            ex ('cp mkpy/pymk.py {}'.format(get_completions_path()))
             exit ()
 
         else:
@@ -839,8 +839,8 @@ def get_pkg_manager_type ():
                     return True
                 elif i == os_id_like:
                     return True
-                else:
-                    return False
+
+            return False
 
         deb_oses = ['elementary', 'ubuntu', 'debian']
         rpm_oses = ['fedora']
@@ -872,7 +872,7 @@ def prune_pkg_list (pkg_list):
     a = set()
     b = set(pkg_list)
 
-    while b:
+    while b and find_deps != None:
         dep = b.pop ()
         curr_deps = find_deps (dep)
         #print ('Pruning {}: {}\n'.format(dep, " ".join(curr_deps)))
@@ -887,11 +887,15 @@ def prune_pkg_list (pkg_list):
                 b.remove (d)
         a.add (dep)
 
-        if len(removed) > 1:
+        if len(removed) > 0:
             print ('Removes: ' + ' '.join(removed))
         else:
             print ()
+
+    if find_deps == None:
+        print (f'No find_deps() function, trying to use package manager type: {pkg_manager_type}')
     print ()
+
     return list (a)
 
 def gcc_used_system_includes (cmd):
