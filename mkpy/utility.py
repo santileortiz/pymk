@@ -521,7 +521,7 @@ def store_get (name, default=None):
 
     # TODO: Eventually remove this warning?
     if name == 'last_target':
-        warn('Las called snip cache variable was renamed. Please change \'last_target\' to \'last_snip\'')
+        warn('Last called snip cache variable was renamed. Please change \'last_target\' to \'last_snip\'')
 
     # Even though we could avoid creating this function and require the user to
     # call store() with value==None, I found this is counter intuitive and hard
