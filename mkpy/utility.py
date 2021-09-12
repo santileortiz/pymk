@@ -389,6 +389,28 @@ def set_echo_mode():
 def ex_escape (s):
     return s.replace ('\n', '').replace ('{', '{{').replace ('}','}}')
 
+def ex_bg (cmd, echo=True, cwd=None):
+    global g_dry_run
+    global g_echo_mode
+
+    ex_cmds.append(cmd)
+    if g_dry_run:
+        return
+
+    if echo or g_echo_mode: print (cmd)
+
+    if g_echo_mode:
+        return
+
+    redirect = open(os.devnull, 'wb')
+
+    # NOTE: Passing cmd as a string does not work when shell=False, and we want
+    # shell=False so that we return the real PID, so that later we can send
+    # signals to the process, for example to kill it or check it's running.
+    process = subprocess.Popen(cmd.split(), shell=False, stdout=redirect, stderr=redirect, cwd=cwd)
+
+    return process.pid
+
 def ex (cmd, no_stdout=False, ret_stdout=False, echo=True):
     # NOTE: This fails if there are braces {} in cmd but the content is not a
     # variable. If this is the case, escape the content that has braces using
@@ -801,6 +823,18 @@ def needs_targets (recipes):
             return True
     return False
 
+def c_needs_rebuild (c_sources, target):
+    """
+    Calls gcc with the passed string as source files to compute the non system
+    files included from it. It then compares its last edit time to the passed
+    target file to determine if the binary needs to be rebuilt.
+    """
+
+    mm_out = ex (f'gcc -MM {c_sources}', ret_stdout=True, echo=False)
+    arr = mm_out.split ()[1:]
+    recipes = {(source, target) for source in arr if source != '\\'}
+    return needs_targets (recipes)
+
 def file_time(fname):
     res = 0
     tgt_path = pathlib.Path(fname)
@@ -1056,7 +1090,7 @@ def pymk_default (skip_snip_cache=[]):
         #     project. For example configuration files like /etc/os-release
         #     which is provided by systemd, or icon themes.
         #
-        # First we try to get the executable callin a dry run of the snip, if
+        # First we try to get the executable calling a dry run of the snip, if
         # we can't find the output file then run the snip and try again. I'm
         # still not sure this is a good default because if a snip generates
         # something using gcc and then deletes it, then this function will
@@ -1113,7 +1147,7 @@ def pymk_default (skip_snip_cache=[]):
         #
         #   * Build toolchain (gcc, llvm, ld, etc.).
         #   * Any non default python module used in pymk.py.
-        #   * Any non standard command caled by the ex() function.
+        #   * Any non standard command called by the ex() function.
         #   * Tools used to package the application (rpmbuild, debuild).
         #   * Dependencies of statically linked libraries.
 
