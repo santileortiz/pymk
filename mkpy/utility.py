@@ -1372,6 +1372,7 @@ def generate_automacros (out_fname, files=None):
                 if scnr.str.startswith (op, scnr.pos):
                     scnr.pos += len(op)
                     new_token = Token(TokenType.OPERATOR, op)
+                    break
 
         if new_token == None:
             keywords = ['if', 'else', 'do', 'while', 'for']
