@@ -1,4 +1,4 @@
-import sys, subprocess, os, ast, shutil, platform, re, json, pickle
+import sys, subprocess, os, ast, shutil, platform, re, json, pickle, zipfile
 
 import importlib.util, inspect, pathlib, filecmp
 
@@ -61,6 +61,9 @@ def get_user_functions():
     """
     keys = globals().copy().keys()
     return [(m,v) for m,v in get_functions() if m not in keys]
+
+def get_function_name():
+    return inspect.getouterframes(inspect.currentframe())[1].frame.f_code.co_name
 
 def user_function_exists(name):
     fun = None
@@ -570,7 +573,7 @@ def store (name, value, default=None):
             if default != None:
                 cache_dict[name] = default
             else:
-                print ('Key \''+name+'\' is not in pymk/cache.')
+                print ('Key \''+name+'\' is not in mkpy/cache.')
                 return
     else:
         cache_dict[name] = value
@@ -735,6 +738,9 @@ def pers_func (name, func, arg):
     # wrap arg into a list.
     return pers_func_f (name, func, [arg])
 
+def path_isfile(path):
+    return os.path.isfile(path)
+
 def path_isdir (path_s):
     return os.path.isdir(path_s.format(**get_user_str_vars()))
 
@@ -753,6 +759,9 @@ def path_dirname (path_s):
 
 def path_basename (path_s):
     return os.path.basename(path_s)
+
+def path_split (path):
+    return os.path.splitext(path)
 
 def path_cat (path, *paths):
     # I don't like how os.path.join() resets to root if it finds os.sep as the
@@ -778,6 +787,34 @@ def ensure_dir (path_s):
     resolved_path = path_resolve(path_s)
     if not path_exists(resolved_path):
         os.makedirs (resolved_path)
+
+def unpack_zip(fname, curr_path='', extensions=['.zip']):
+    """
+    Extract nested zip files recursively. Compressed files are left untouched,
+    the extracted result will be available in a directory with the same name
+    (and extension) but with the .dir suffix.
+
+    Useful for exploring the content of JAR or WAR files. Just pass
+    ['.jar','.war'] to the extensions parameter.
+    """
+    filepath = curr_path + fname
+    print (f'{filepath}')
+
+    target_path = filepath +'.dir/'
+    zf = zipfile.ZipFile(filepath)
+    zf.extractall(target_path)
+    extracted_list = zf.namelist()
+    zf.close()
+
+    # TODO: How does this handle a zip with the same file multiple times inside?
+    for p in extracted_list:
+        try:
+            _, ext = path_split(p)
+            if ext in extensions:
+                unpack_zip(p, curr_path=target_path)
+        except:
+            print(ecma_red('error:') + f' could not extract {p}')
+            pass
 
 def needs_target (recipe):
     """
@@ -848,7 +885,7 @@ def file_time(fname):
     return res
 
 
-def install_files (info_dict, prefix=None):
+def install_files (info_dict, prefix=None, only_new=True):
     global g_dry_run
 
     if prefix == None:
@@ -856,26 +893,25 @@ def install_files (info_dict, prefix=None):
 
     prnt = []
     for f in info_dict.keys():
-        dst = prefix + info_dict[f]
-        resolved_dst = dst.format(**get_user_str_vars())
-        resolved_f = f.format(**get_user_str_vars())
+        dst = path_cat(prefix, info_dict[f])
 
         # Compute the absolute dest path including the file, even if just a
         # dest directory was specified
-        dst_dir, fname = os.path.split (resolved_dst)
+        dst_dir, fname = os.path.split (dst)
         if fname == '':
-            _, fname = os.path.split (resolved_f)
-        dest_file = dst_dir + '/' + fname
+            _, fname = os.path.split (f)
+        dest_file = path_cat(dst_dir, fname)
 
-        # If the file already exists check we have a newer version. If we
-        # don't, skip it.
         install_file = True
-        dest_file_path = pathlib.Path(dest_file)
-        if dest_file_path.exists():
-            src_time = file_time (resolved_f)
-            dst_time = file_time (dest_file)
-            if (src_time < dst_time):
-                install_file = False
+        if only_new:
+            # If the file already exists check we have a newer version. If we
+            # don't, skip it.
+            dest_file_path = pathlib.Path(dest_file)
+            if dest_file_path.exists():
+                src_time = file_time (f)
+                dst_time = file_time (dest_file)
+                if (src_time < dst_time):
+                    install_file = False
 
         if install_file:
             if not g_dry_run:
@@ -883,17 +919,17 @@ def install_files (info_dict, prefix=None):
                 if not dst_path.exists():
                     os.makedirs (dst_dir)
 
-                shutil.copy (resolved_f, dest_file)
+                shutil.copy (f, dest_file)
                 prnt.append (dest_file)
             else:
-                prnt.append ('Install: ' + resolved_f + ' -> ' + dest_file)
+                prnt.append ('Install: ' + f + ' -> ' + dest_file)
 
     prnt.sort()
     [print (s) for s in prnt]
 
     return prnt
 
-# TODO: dnf is written in python, meybe we can call dnf's module instead of
+# TODO: dnf is written in python, maybe we can call dnf's module instead of
 # using ex().
 # @use_dnf_python
 def rpm_find_providers (file_list):
