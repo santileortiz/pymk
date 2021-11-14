@@ -1,4 +1,4 @@
-import sys, subprocess, os, ast, shutil, platform, re, json, pickle, zipfile
+import sys, subprocess, os, ast, shutil, platform, re, json, pickle, zipfile, shlex
 
 import importlib.util, inspect, pathlib, filecmp
 
@@ -415,11 +415,11 @@ def ex_bg (cmd, echo=True, cwd=None):
     # NOTE: Passing cmd as a string does not work when shell=False, and we want
     # shell=False so that we return the real PID, so that later we can send
     # signals to the process, for example to kill it or check it's running.
-    process = subprocess.Popen(cmd.split(), shell=False, stdout=redirect, stderr=redirect, cwd=cwd)
+    process = subprocess.Popen(shlex.split(cmd), shell=False, stdout=redirect, stderr=redirect, cwd=cwd)
 
     return process.pid
 
-def ex (cmd, no_stdout=False, ret_stdout=False, echo=True):
+def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
     # NOTE: This fails if there are braces {} in cmd but the content is not a
     # variable. If this is the case, escape the content that has braces using
     # the ex_escape() function. This is required for things like awk scripts.
@@ -439,11 +439,11 @@ def ex (cmd, no_stdout=False, ret_stdout=False, echo=True):
 
     if not ret_stdout:
         redirect = open(os.devnull, 'wb') if no_stdout else None
-        return subprocess.call(resolved_cmd, shell=True, stdout=redirect)
+        return subprocess.call(resolved_cmd, shell=True, stdout=redirect, cwd=cwd)
     else:
         result = ""
         try:
-            result = subprocess.check_output(resolved_cmd, shell=True, stderr=open(os.devnull, 'wb')).decode().strip ()
+            result = subprocess.check_output(resolved_cmd, shell=True, stderr=open(os.devnull, 'wb'), cwd=cwd).decode().strip ()
         except subprocess.CalledProcessError as e:
             pass
         return result
