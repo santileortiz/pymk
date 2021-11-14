@@ -335,17 +335,6 @@ def err (string, **kwargs):
 def ok (string, **kwargs):
     print ('\033[1m\033[92m{}\033[0m'.format(string), **kwargs)
 
-def get_user_str_vars ():
-    """
-    Returns a dictionary with global strings in module __main__.
-    """
-    var_list = inspect.getmembers(sys.modules['__main__'])
-    var_dict = {}
-    for v_name, v in var_list:
-        if type(v) == type(""):
-            var_dict[v_name] = v
-    return var_dict
-
 def pkg_config_libs (packages):
     return ex ('pkg-config --libs ' + ' '.join(packages), ret_stdout=True)
 
@@ -397,7 +386,32 @@ def set_echo_mode():
 def ex_escape (s):
     return s.replace ('\n', '').replace ('{', '{{').replace ('}','}}')
 
-def ex_bg (cmd, echo=True, cwd=None):
+def ex_bg (cmd, echo=True, cwd=None, log=None):
+    """
+    This does not invoke a full wrapping shell, this means shell syntax doesn't
+    work here. IO redirection using >, >>, <, << or | will not work. Chaining
+    multiple commands using ; or using & to run a command in the background
+    will fail too.
+
+    Rationale:
+    ---------
+    When running some command from a script in the background, we most likely
+    want the PID of the executed process so we can interact with it (kill it,
+    query if it's running, or if it terminated, detect if startup failed etc.).
+    For this, we can't wrap the process in a shell, if we did, it would be
+    impossible to detect any of these failure states and we would end with a
+    zombie shell process.
+
+    Even though this adds some limitations in the types of commands that can be
+    passed, it forces users to shape the commands in such a way that will be
+    more convenient for automation in the long term. Avoiding hard to debug
+    issues caused by the hidden layer of the wrapper shell.
+
+    I don't think it makes sense to have a function that runs a command in the
+    background and does use a wrapping shell. This would be equivalent to using
+    ex() and appending & to the command string. The process is run in the
+    background and we lose most of the ability to monitor and control it.
+    """
     global g_dry_run
     global g_echo_mode
 
@@ -410,40 +424,40 @@ def ex_bg (cmd, echo=True, cwd=None):
     if g_echo_mode:
         return
 
-    redirect = open(os.devnull, 'wb')
+    if log == None:
+        redirect = open(os.devnull, 'wb')
+    else:
+        redirect = open(log, 'wb')
 
     # NOTE: Passing cmd as a string does not work when shell=False, and we want
-    # shell=False so that we return the real PID, so that later we can send
-    # signals to the process, for example to kill it or check it's running.
+    # shell=False to disable the wrapping shell. We use shlex's split to
+    # correctly compute the parameters, even when there are spaces inside
+    # quoted strings or escaped space characters.
     process = subprocess.Popen(shlex.split(cmd), shell=False, stdout=redirect, stderr=redirect, cwd=cwd)
 
+    redirect.close()
     return process.pid
 
 def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
-    # NOTE: This fails if there are braces {} in cmd but the content is not a
-    # variable. If this is the case, escape the content that has braces using
-    # the ex_escape() function. This is required for things like awk scripts.
     global g_dry_run
     global g_echo_mode
 
-    resolved_cmd = cmd.format(**get_user_str_vars())
-
-    ex_cmds.append(resolved_cmd)
+    ex_cmds.append(cmd)
     if g_dry_run:
         return
 
-    if echo or g_echo_mode: print (resolved_cmd)
+    if echo or g_echo_mode: print (cmd)
 
     if g_echo_mode:
         return
 
     if not ret_stdout:
         redirect = open(os.devnull, 'wb') if no_stdout else None
-        return subprocess.call(resolved_cmd, shell=True, stdout=redirect, cwd=cwd)
+        return subprocess.call(cmd, shell=True, stdout=redirect, cwd=cwd)
     else:
         result = ""
         try:
-            result = subprocess.check_output(resolved_cmd, shell=True, stderr=open(os.devnull, 'wb'), cwd=cwd).decode().strip ()
+            result = subprocess.check_output(cmd, shell=True, stderr=open(os.devnull, 'wb'), cwd=cwd).decode().strip ()
         except subprocess.CalledProcessError as e:
             pass
         return result
@@ -742,15 +756,15 @@ def path_isfile(path):
     return os.path.isfile(path)
 
 def path_isdir (path_s):
-    return os.path.isdir(path_s.format(**get_user_str_vars()))
+    return os.path.isdir(path_s)
 
 def path_resolve (path_s):
-    return os.path.expanduser(path_s.format(**get_user_str_vars()))
+    return os.path.expanduser(path_s)
 
 def path_exists (path_s):
     """
-    Convenience function that checks the existance of a file or directory. It
-    supports context variable substitutions.
+    Convenience function that checks the existance of a path, either as a file
+    or a directory.
     """
     return pathlib.Path(path_resolve(path_s)).exists()
 
