@@ -22,9 +22,8 @@ def default ():
     target = store_get ('last_snip', default='simple_build')
     call_user_function(target)
 
-# This example shows how to run a simple bash command.
 def simple_build ():
-    ex ('echo calling example_procedure in mode: {mode}', echo=False)
+    ex (f'echo calling example_procedure in mode: {mode}', echo=False)
 
     # After setting echo mode, all calls to ex() will only echo the command
     # that would have been called. This is useful to debug the commands that
@@ -33,9 +32,9 @@ def simple_build ():
     # file, in a normal use case the following line would be removed.
     set_echo_mode ()
 
-    # This is the actual call to the compiler. ex() will substitute all
-    # {varname} where varname is the name of a global variable in this script.
-    ex ('gcc {C_FLAGS} -o test test.c')
+    # Call the compiler by using the ex() function. Note how an f-string is
+    # used to substitute the flags variable.
+    ex (f'gcc {C_FLAGS} -o test test.c')
 
 if __name__ == "__main__":
     # Everything above this line will be executed for each TAB press.
