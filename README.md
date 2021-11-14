@@ -24,20 +24,21 @@ By default the sample pymk.py file stores the last procedure called and this is
 the one that will be called if you run `./pymk.py` without arguments.
 
 The first time you call this pymk.py script it will prompt you with a command
-that will install support for tab complete in this procedures. You can disable
-tab completions by removing the call to `handle_tab_complete()`.
+that will install support for tab complete in these procedures. You can disable
+tab completions (and silence the warning) by removing the call to
+`handle_tab_complete()`.
 
 ## FAQ
 
 **Q:** Why not use available build systems?
 
 **A:** After trying several of them I think creating textual representations
-that are 'simpler' than a programming language is the wrong approach. They
+that are "simpler" than a programming language is the wrong approach. They
 become bloated systems with lots of configuration options, huge documentation
 and a lot of magic behind the scenes. In the end, to provide maximum
 flexibility, they either grow to be turing complete languages or provide a way
-to call a 'real' programming language like Bash. I'm starting the other way
-arround, taking a fully fledged programming language and symplifying the common
+to call a real programming language like Bash. I'm starting the other way
+around, start from a fully fledged programming language and symplify the common
 tasks required to build a project.
 
 ##
@@ -46,9 +47,7 @@ tasks required to build a project.
 
 **A:** Mainly, because it's the scripting language I'm most familiar with and
 has intuitive syntax. Also, it comes preinstalled in Linux (my main development
-environment), has some degree of metaprogramming built in and is multiplatform
-(although, I don't make guarantees of all code in Pymk being multiplatform as I
-only test in Linux and OSX).
+environment), has some degree of metaprogramming built in and is multiplatform.
 
 ##
 
@@ -59,20 +58,21 @@ the build code part of the project avoids adding an external dependency to the
 installed version of the build tool. This has several advantages:
 
  - Someone building the project doesn't need a specific version of pymk, the
-   one in the source should 'just work'.
+   one in the source should _just work_.
 
- - Building old revisions of the project becomes easier.
+ - Building old revisions of the project becomes easier, because the build code
+   is versioned together with the project's code.
 
- - There is no need to install pymk, which is one step less in the build process.
+ - There is no need to install Pymk, which is one step less in the build
+   process.
 
- - Usually API compatibility won't break. But in case it does, changes in pymk
+ - Usually API compatibility won't break. But in case it does, changes in Pymk
    won't silently break the project build after a system update. These breaks
-   will only happen when the project explicitly upgrades mkpy and hopefully
-   fixed at the same time.
+   will only happen when the project explicitly upgrades Pymk and hopefully
+   they will be fixed at the same time.
 
- - You can modify the internals of mkpy in case they don't work for you, then
-   copy the code into your own python scripts to work the way you want. Users
-   get close to the implementation details of pymk.
+ - Users can easily modify the internals of Pymk in case they don't work for
+   them. Users get close to the implementation details of pymk.
 
 ##
 
