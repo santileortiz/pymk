@@ -447,6 +447,13 @@ def ex_bg (cmd, echo=True, cwd=None, log=None):
     redirect.close()
     return process.pid
 
+# TODO: Is there a way to do this in python without calling a shell?
+def ex_bg_kill (pid):
+    if is_windows():
+        ex(f'taskkill /F /PID {pid}')
+    else:
+        ex(f'kill {pid}')
+
 def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
     global g_dry_run
     global g_echo_mode
@@ -470,13 +477,6 @@ def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
         except subprocess.CalledProcessError as e:
             pass
         return result
-
-# TODO: Is there a way to do this in python without calling a shell?
-def ex_bg_kill (pid):
-    if is_windows():
-        ex(f'taskkill /F /PID {pid}')
-    else:
-        ex(f'kill {pid}')
 
 # TODO: Rename this because it has the same name as one of the default logging
 # functions in python.
