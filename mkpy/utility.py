@@ -93,14 +93,23 @@ def call_user_function(name, dry_run=False):
         g_dry_run = False
     return
 
+def is_macos():
+    return platform.system() == 'Darwin'
+
+def is_windows():
+    return platform.system() == 'Windows'
+
+def is_linux():
+    return platform.system() == 'Linux'
+
 def get_completions_path():
     completions_path = ''
 
-    if platform.system() == 'Darwin':
+    if is_macos():
         if ex('which brew', echo=False, no_stdout=True) == 0:
             prefix = ex('brew --prefix', ret_stdout=True, echo=False)
             completions_path = path_cat(prefix, '/etc/bash_completion.d/pymk.py')
-    elif platform.system() == 'Linux':
+    elif is_linux():
         completions_path = '/usr/share/bash-completion/completions/pymk.py'
 
     return completions_path
@@ -147,12 +156,12 @@ def handle_tab_complete ():
             exit ()
 
         else:
-            if platform.system() == 'Darwin':
+            if is_macos():
                 warn('Tab completions not installed:')
                 print(' 1) Install brew (https://brew.sh/)')
                 print(' 2) Install bash-completion with "brew install bash-completion")')
                 print(' 3) Run "sudo ./pymk.py --install_completions" to install Pymk completions.\n')
-            elif platform.system() == 'Linux':
+            elif is_linux():
                 warn('Tab completions not installed:')
                 print(' Use "sudo ./pymk.py --install_completions" to install them\n')
 
@@ -443,6 +452,13 @@ def ex_bg (cmd, echo=True, cwd=None, log=None):
 
     redirect.close()
     return process.pid
+
+# TODO: Is there a way to do this in python without calling a shell?
+def ex_bg_kill (pid):
+    if is_windows():
+        ex(f'taskkill /F /PID {pid}')
+    else:
+        ex(f'kill {pid}')
 
 def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
     global g_dry_run
