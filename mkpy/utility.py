@@ -1,7 +1,9 @@
 import sys, subprocess, os, ast, shutil, platform, re, json, pickle, zipfile, shlex
 
+import textwrap
 import importlib.util, inspect, pathlib, filecmp
 from itertools import permutations
+from collections import namedtuple
 
 from enum import Enum
 
@@ -1409,19 +1411,115 @@ def automatic_test_function(*args, **kwargs):
 
         return __wrapper
 
-def test(result, expected_result=None, name=None):
+class Test():
+    def __init__(self, name):
+        self.children_status = None
+        self.name = name
+        self.output = ''
+
+class TestContext():
+    def __init__(self):
+        self.width = 40
+        self.indent = 4
+
+        self.tests = []
+        self.force_output = False
+
+    def set_status(self, status):
+        if len(self.tests) > 0 and status != None:
+            if self.tests[-1].children_status == None:
+                self.tests[-1].children_status = status
+            else:
+                self.tests[-1].children_status &= status
+
+    def out(self, s):
+        if len(self.tests) == 0:
+            print (s)
+        else:
+            self.tests[-1].output += s + '\n'
+
+__g_test_context = TestContext()
+
+def test_force_output(value=True, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+    test_context.force_output = value
+
+def test_push(name, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    test_context.tests.append(Test(name))
+
+def test_result_string(s, result, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    unescaped = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', s)
+
+    return s + '.'*max(3, test_context.width-len(unescaped)) + ' ' + result
+
+def test_result_string_default(name, result, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    if result:
+        return test_result_string (f'{name}', ecma_green("OK"), test_context=test_context)
+    else:
+        return test_result_string (f'{name}', ecma_red("FAIL"), test_context=test_context)
+
+def test_pop(result=None, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    t = test_context.tests.pop()
+
+    if result == None:
+        result = t.children_status
+
+    print (test_result_string_default (t.name, result))
+
+    if result == False or t.children_status == False or test_context.force_output:
+        indented = textwrap.indent (t.output, ' '*(test_context.indent)*(len(test_context.tests)+1))
+        print (indented, end='')
+
+def test_error(message, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    indented = textwrap.indent (message, ' '*(test_context.indent)*(len(test_context.tests)))
+    test_context.out(indented)
+
+def test(result, expected_result=None, name=None, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
     if name == None:
         source = get_calling_test_source()
         name = f'{source} -> {result}'
 
+    success = None
     if expected_result != None:
         if result == expected_result:
-            print (f'{name} ... {ecma_green("OK")}')
+            success = True
         else:
-            print (f'{name} ... {ecma_red("FAIL")}')
+            success = False
 
+    if expected_result != None:
+        test_context.out(test_result_string_default(name, result == expected_result))
     else:
-        print (f'{name} -> {result} ... [?] ')
+        test_context.out(f'{name} -> {result} ... {ecma_yellow("?")} ')
+
+    test_context.set_status(success)
+
+    return success
 
 ##############
 # Regex tester
@@ -1443,7 +1541,7 @@ def get_color_by_idx(idx):
         return ecma_code_f(183)
 
 def regex_match_print (string, match_object):
-    res = string
+    res = ''
     if match_object != None:
         markers = {}
         for i in range(len(match_object.groups())+1):
@@ -1471,36 +1569,47 @@ def regex_match_print (string, match_object):
         last_pos = 0
         sorted_markers = [(key, markers[key]) for key in sorted(markers.keys())]
         for pos, markers_at_pos in sorted_markers:
-            print (string[last_pos:pos], end='')
+            res += string[last_pos:pos]
             for marker in markers_at_pos:
-                print (marker[1](marker[0]), end='')
+                res += marker[1](marker[0])
             last_pos = pos
-        print (string[last_pos:])
+        res += string[last_pos:]
 
     else:
-        print (string)
+        return string
 
-def regex_test(regex, test_str, should_match):
+    return res
+
+def regex_test(regex, test_str, should_match, test_context=None):
+    global __g_test_context
+    if test_context == None:
+        test_context = __g_test_context
+
+    out_str = ''
+
     result = re.search(regex, test_str)
 
     if (should_match and result != None) or (not should_match and result == None):
         if result != None:
-            print (ecma_green('OK MATCH'), end=' ')
+            out_str += ecma_green('OK MATCH')
         else:
-            print (ecma_green('OK NO MATCH'), end=' ')
+            out_str += ecma_green('OK NO MATCH')
 
-        regex_match_print (test_str, result)
+        out_str += ' ' + regex_match_print (test_str, result)
+
+        test_context.set_status(True)
 
     else:
         if result != None:
-            print (ecma_red('FAIL MATCH'), end=' ')
-            regex_match_print (test_str, result)
-            print (result)
-            print()
+            out_str += f"{ecma_red('FAIL MATCH')} {regex_match_print(test_str, result)}\n"
+            out_str += result + '\n'
 
         else:
-            print (ecma_red('FAIL NO MATCH'), end=' ')
-            regex_match_print (test_str, result)
+            out_str += ecma_red('FAIL NO MATCH') + ' ' + regex_match_print (test_str, result)
+
+        test_context.set_status(False)
+
+    test_context.out(out_str)
 
 
 ############################################
