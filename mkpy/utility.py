@@ -5,6 +5,12 @@ import importlib.util, inspect, pathlib, filecmp
 from itertools import permutations
 from collections import namedtuple
 
+try:
+    # Used by pretty_dict()
+    from natsort import natsorted
+except:
+    natsorted = sorted
+
 from enum import Enum
 
 """
@@ -585,6 +591,31 @@ def json_load(fname):
 def json_dump(obj, fname):
     with open (fname, 'w') as f:
         return json.dump(obj, f)
+
+def pretty_dict(d, title=None):
+    s = ''
+
+    if title != None:
+        s += title + '\n'
+
+    s += '{\n'
+    for key, value in natsorted(d.items(), key=lambda x: x[0]):
+        s += f"  {repr(key)} : {repr(value)}\n"
+    s += '}\n'
+    return s
+
+def pretty_list(lst, title=None):
+    s = ''
+
+    if title != None:
+        s += title + '\n'
+
+    for i in lst:
+        if title != None:
+            s += '  '
+        s += repr(i) + '\n'
+    return s
+
 
 def get_snip ():
     if len(sys.argv) == 1:
