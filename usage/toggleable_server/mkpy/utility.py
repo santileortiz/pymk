@@ -5,6 +5,12 @@ import importlib.util, inspect, pathlib, filecmp
 from itertools import permutations
 from collections import namedtuple
 
+try:
+    # Used by pretty_dict()
+    from natsort import natsorted
+except:
+    natsorted = sorted
+
 from enum import Enum
 
 """
@@ -116,7 +122,7 @@ def get_completions_path():
 
     return completions_path
 
-def check_completions ():
+def completions_exist ():
     completions_path = get_completions_path()
     if completions_path == '' or not path_exists(completions_path):
         return False
@@ -137,7 +143,7 @@ def recommended_opt (s):
     return res
 
 def is_interactive():
-    return "i" in ex("echo $-", ret_stdout=True, echo=False)
+    return os.isatty(sys.stdin.fileno())
 
 builtin_completions = []
 cli_completions = {}
@@ -151,13 +157,13 @@ def handle_tab_complete ():
     global cli_completions, builtin_completions
 
     # Check that the tab completion script is installed
-    if not check_completions () and is_interactive():
+    if is_interactive():
         if get_cli_bool_opt('--install_completions'):
             print ('Installing tab completions...')
-            ex ('cp mkpy/pymk.py {}'.format(get_completions_path()))
+            ex (f'cp mkpy/pymk.py {get_completions_path()}')
             exit ()
 
-        else:
+        elif not completions_exist ():
             if is_macos():
                 warn('Tab completions not installed:')
                 print(' 1) Install brew (https://brew.sh/)')
@@ -166,7 +172,6 @@ def handle_tab_complete ():
             elif is_linux():
                 warn('Tab completions not installed:')
                 print(' Use "sudo ./pymk.py --install_completions" to install them\n')
-
         return
 
     # Add the builtin tab completions the user wants
@@ -189,6 +194,7 @@ def handle_tab_complete ():
         if not match_found:
             f_names = [s for s,f in get_user_functions()]
             print (' '.join(f_names))
+
             if line[-1] == '-':
                 def_opts = [recommended_opt(s) for s in cli_completions.keys()]
                 print (' '.join(def_opts))
@@ -339,9 +345,15 @@ def get_cli_no_opt ():
             if sys.argv[i] in cli_arg_options and len(sys.argv) > i+1:
                 i += 2
             else:
-                i += 1
-                if not(sys.argv[i] in cli_bool_options and len(sys.argv) > i):
+                if sys.argv[i] in cli_arg_options and len(sys.argv) <= i+1:
+                    # TODO: This doesn't detect all the cases where someone may
+                    # forget to pass the argument.
+                    print (f'Missing argument for CLI parameter: {sys.argv[i]}')
+
+                elif sys.argv[i] not in cli_bool_options:
                     print (f'Unknown CLI parameter: {sys.argv[i]}')
+
+                i += 1
         else:
             return sys.argv[i:]
     return None
@@ -462,7 +474,7 @@ def ex_bg_kill (pid):
     else:
         ex(f'kill {pid}')
 
-def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
+def ex (cmd, no_stdout=False, no_stderr=False, quiet=False, ret_stdout=False, echo=True, cwd=None):
     global g_dry_run
     global g_echo_mode
 
@@ -475,13 +487,28 @@ def ex (cmd, no_stdout=False, ret_stdout=False, echo=True, cwd=None):
     if g_echo_mode:
         return
 
+    # Somewhere I needed to also silence stderr when returning stdout so I was
+    # passing stderr=open(os.devnull, 'wb') to subprocess.check_output. The
+    # following is done just to be backward compatible with that, but really I
+    # should pass no_stderr=True wherever this was necessary, and not assume we
+    # want to silence stderr when returning stdout.
+    # TODO: Check all usages of ex() where I pass ret_stdout=True. What I said
+    # above, does it really make sense?, is it really a better API?. Maybe a
+    # better idea is to remove the ret_stdout parameter and instead create a
+    # new function that can be called like this:
+    #   return_code, stdout_str, stderr_str = ex_quiet(...)
+    if ret_stdout:
+        quiet = True
+
+    stdout_redirect = open(os.devnull, 'wb') if no_stdout or quiet else None
+    stderr_redirect = open(os.devnull, 'wb') if no_stderr or quiet else None
+
     if not ret_stdout:
-        redirect = open(os.devnull, 'wb') if no_stdout else None
-        return subprocess.call(cmd, shell=True, stdout=redirect, cwd=cwd)
+        return subprocess.call(cmd, shell=True, stdout=stdout_redirect, stderr=stderr_redirect, cwd=cwd)
     else:
         result = ""
         try:
-            result = subprocess.check_output(cmd, shell=True, stderr=open(os.devnull, 'wb'), cwd=cwd).decode().strip ()
+            result = subprocess.check_output(cmd, shell=True, stderr=stderr_redirect, cwd=cwd).decode().strip ()
         except subprocess.CalledProcessError as e:
             pass
         return result
@@ -564,6 +591,31 @@ def json_load(fname):
 def json_dump(obj, fname):
     with open (fname, 'w') as f:
         return json.dump(obj, f)
+
+def pretty_dict(d, title=None):
+    s = ''
+
+    if title != None:
+        s += title + '\n'
+
+    s += '{\n'
+    for key, value in natsorted(d.items(), key=lambda x: x[0]):
+        s += f"  {repr(key)} : {repr(value)}\n"
+    s += '}\n'
+    return s
+
+def pretty_list(lst, title=None):
+    s = ''
+
+    if title != None:
+        s += title + '\n'
+
+    for i in lst:
+        if title != None:
+            s += '  '
+        s += repr(i) + '\n'
+    return s
+
 
 def get_snip ():
     if len(sys.argv) == 1:
@@ -791,6 +843,11 @@ def path_exists (path_s):
     or a directory.
     """
     return pathlib.Path(path_resolve(path_s)).exists()
+
+def path_parse (path):
+    dirname, basename = os.path.split(path)
+    fname, extension = os.path.splitext(basename)
+    return (dirname, fname, extension)
 
 def path_dirname (path_s):
     return os.path.dirname(path_s)
@@ -1602,7 +1659,7 @@ def regex_test(regex, test_str, should_match, test_context=None):
     else:
         if result != None:
             out_str += f"{ecma_red('FAIL MATCH')} {regex_match_print(test_str, result)}\n"
-            out_str += result + '\n'
+            out_str += str(result) + '\n'
 
         else:
             out_str += ecma_red('FAIL NO MATCH') + ' ' + regex_match_print (test_str, result)
