@@ -893,7 +893,7 @@ def ensure_dir (path_s):
     if not path_exists(resolved_path):
         os.makedirs (resolved_path)
 
-def unpack_zip(fname, curr_path='', extensions=['.zip']):
+def unpack_zip(fname, curr_path='', extensions=['.zip'], filter=''):
     """
     Extract nested zip files recursively. Compressed files are left untouched,
     the extracted result will be available in a directory with the same name
@@ -915,7 +915,7 @@ def unpack_zip(fname, curr_path='', extensions=['.zip']):
     for p in extracted_list:
         try:
             _, ext = path_split(p)
-            if ext in extensions:
+            if ext in extensions and filter in p:
                 unpack_zip(p, curr_path=target_path)
         except:
             print(ecma_red('error:') + f' could not extract {p}')
