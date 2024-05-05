@@ -13,6 +13,14 @@ except:
 
 from enum import Enum
 
+# f-strings are extensively used.
+assert sys.version_info >= (3,6)
+
+ex_cmds = []
+g_dry_run = False
+g_echo_mode = False
+g_top_level_state_dir = os.path.expanduser('~/mkpy/')
+
 """
 !!!!!!IMPOTRANT!!!!!
 The idea of this library is to make easy to call python functions located in
@@ -320,7 +328,7 @@ def get_cli_persistent_toggle(name, enable, disable, default):
 #        i = i+1
 #    return None
 
-def get_cli_no_opt ():
+def get_cli_no_opt (validate=True):
     """
     Returns an array of all argv values that are after options processed by
     get_cli_arg_opt() or get_cli_bool_opt().
@@ -345,12 +353,12 @@ def get_cli_no_opt ():
             if sys.argv[i] in cli_arg_options and len(sys.argv) > i+1:
                 i += 2
             else:
-                if sys.argv[i] in cli_arg_options and len(sys.argv) <= i+1:
+                if validate and sys.argv[i] in cli_arg_options and len(sys.argv) <= i+1:
                     # TODO: This doesn't detect all the cases where someone may
                     # forget to pass the argument.
                     print (f'Missing argument for CLI parameter: {sys.argv[i]}')
 
-                elif sys.argv[i] not in cli_bool_options:
+                elif validate and sys.argv[i] not in cli_bool_options:
                     print (f'Unknown CLI parameter: {sys.argv[i]}')
 
                 i += 1
@@ -369,10 +377,6 @@ def pkg_config_libs (packages):
 
 def pkg_config_includes (packages):
     return ex ('pkg-config --cflags ' + ' '.join(packages), ret_stdout=True)
-
-ex_cmds = []
-g_dry_run = False
-g_echo_mode = False
 
 # TODO: Is this useful? maybe just ask the user to set the global variable
 # :global_variable_setters
@@ -504,10 +508,12 @@ def ex (cmd, no_stdout=False, no_stderr=False, quiet=False, ret_stdout=False, ec
     stderr_redirect = open(os.devnull, 'wb') if no_stderr or quiet else None
 
     if not ret_stdout:
+        #return subprocess.call(cmd, shell=True, stdout=stdout_redirect, stderr=stderr_redirect, cwd=cwd, executable="/bin/bash")
         return subprocess.call(cmd, shell=True, stdout=stdout_redirect, stderr=stderr_redirect, cwd=cwd)
     else:
         result = ""
         try:
+            #result = subprocess.check_output(cmd, shell=True, stderr=stderr_redirect, cwd=cwd, executable="/bin/bash").decode().strip ()
             result = subprocess.check_output(cmd, shell=True, stderr=stderr_redirect, cwd=cwd).decode().strip ()
         except subprocess.CalledProcessError as e:
             pass
@@ -515,7 +521,7 @@ def ex (cmd, no_stdout=False, no_stderr=False, quiet=False, ret_stdout=False, ec
 
 # TODO: Rename this because it has the same name as one of the default logging
 # functions in python.
-def info (s):
+def info (s, **kwargs):
     # The following code can be used to see available colors
     #for i in range (8):
     #    print ("\033[0;3" + str(i) + "m\033[K" + "HELLO" + "\033[m\033[K", end=' ')
@@ -528,12 +534,12 @@ def info (s):
 
     color = '\033[1;38;5;177m\033[K'
     default_color = '\033[m\033[K'
-    print (color+s+default_color)
+    print (color+s+default_color, **kwargs)
 
-def warn (s):
+def warn (s, **kwargs):
     color = '\033[1;33m\033[K'
     default_color = '\033[m\033[K'
-    print (color+s+default_color)
+    print (color+s+default_color, **kwargs)
 
 def ecma_red(s):
  return f"\033[1;31m\033[K{s}\033[m\033[K"
@@ -632,23 +638,29 @@ def get_snip ():
         else:
             return sys.argv[1]
 
+def get_cache_dict_path ():
+    if path_exists('mkpy'):
+        return 'mkpy/cache'
+    else:
+        return path_cat(g_top_level_state_dir, 'cache')
+
 def get_cache_dict ():
     cache_dict = None
 
-    if os.path.exists('mkpy/cache'):
-        cache = open ('mkpy/cache', 'r')
+    cache_dict_path = get_cache_dict_path()
+    if cache_dict_path:
+        cache = open (cache_dict_path, 'r')
         cache_dict = ast.literal_eval (cache.readline())
         cache.close ()
 
     return cache_dict
 
 def set_cache_dict (cache_dict):
-    if not path_exists('mkpy'):
-        return
-
-    cache = open ('mkpy/cache', 'w')
-    cache.write (str(cache_dict)+'\n')
-    cache.close ()
+    cache_dict_path = get_cache_dict_path()
+    if cache_dict_path:
+        cache = open (cache_dict_path, 'w')
+        cache.write (str(cache_dict)+'\n')
+        cache.close ()
 
 def store (name, value, default=None):
     """
